@@ -1,0 +1,572 @@
+---
+title: "Practica 2"
+author: "María Pérez Ameneiro"
+date: "5/1/2021"
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## 0 Carga del archivo
+
+Se procede a la carga del archivo **Titanic.csv** añadiendo que el separador es ; en vez de , para su posterior tratamiento. Se guarda en el dataframe **base** y se procede a enseñar por pantalla 5 filas para comprobar su correcta carga.
+
+
+```{r csv}
+base <- read.csv("Titanic.csv", sep=",",dec=".")
+head(base)
+```
+
+
+Cargamos las librerías necesarias
+
+```{r librería}
+library(Rcmdr)
+library(ggplot2)
+library(ISLR)
+library(MASS)
+library(dplyr)
+library(nortest)
+library(tables )
+```
+
+## 1 Descripción del dataset
+
+El dataset fue obtenido a partir del enlace de Kaggle y esta constituido por 
+
+•	PassengerId. Identificador del pasajero registrado en la base de datos
+•	Survived. Indica si sobrevivió, siendo 1 positivo y 0 negativo
+•	Pclass. Clase del tique. Tomando valores de 1, 2 y 3 (1ª,2ª y 3ª)
+•	Name. Nombre del pasajero
+•	Sex. Sexo del pasajero.
+•	Age. Edad en años
+•	Sib. Nº de hermanos o cónyuges embarcados
+•	Sp Parch. Nº de hijos o padres embarcados
+•	Ticket. Nº de tique
+•	Fare. Precio del tique
+•	Cabin. Tipo de camarote
+•	Embarked. Puerto embarcado.
+
+###¿Por qué es importante y qué pregunta/problema pretende responder?
+
+Para esta práctica se ha utilizado el dataset Titanic: Machine Learning from Disater debido a que me parece interesante al estar relacionado con mis estudios anteriores y por su influencia en el mundo marítimo. Debido a él se reúne la OMI (Organización Mundial Internacional) y crea el primer Convenio Internacional para la Seguridad de la Vida Humana en el Mar (SOLAS), el cual fue revisado en varias ocasiones y es de aplicación actualmente.
+El dataset es importante debido porque nos va a proporcionar información acerca del precio del billete según la edad, sexo, la clase del billete de la camarote, familiares a bordo y puerto de embarque. Nos va a dar información como nos influyen unos factores mas que otros o no influyen en el precio. Esto nos puede servir para como ejercicio para ejercer una campaña de publicidad desde la competencia al conocer los precios de los billetes.
+También se va a hacer una regresión lineal para ver qué factores influyeron en la supervivencia del pasaje del buque, lo cual nos puede proporcionar si es más seguro viajar en clases altas (camarotes encima de la flotación) o la edad influye (más joven mayor capacidad de resistencia) o familiares a bordo (se intenta salvar a los familiares).
+
+## 2.	Integración y selección de los datos de interés a analizar.
+
+Los datos que no vamos a usar de la base de datos son los siguientes:
+- Idpassanger. No es un dato relevante porque es una correlación de números.
+- Name. Los nombres no son interesantes porque los datos para uso de evaluación de datos deben estar anonizados para no vulnerar la legislación
+-Ticktet. El identificador del tique no proporciona información relevante en nuestro estudio.
+- Cabin. El numero de camarote no proporciona información que nos influya en el estudio.
+Los restantes datos se van a evaluar de cómo influye en el precio del billete los parámetros siguientes:
+•	Pclass. 
+•	Sex. 
+•	Age. 
+•	SibSp.
+•	Parch
+•	Embarked. Puerto embarcado.
+
+Se procede a eliminar las variables no necesarias y guardarlas en un nueva base de datos base2.
+
+```{r base nueva}
+#Se crea la nueva base de datos
+#Eliminan columnas de no necesarias
+borrar <- c("PassengerId","Name","Ticket","Cabin")
+base2 <- base[ , !(names(base) %in% borrar)]
+head(base2, n=9)
+#base2<-data.frame(base$Survived,base$Pclass,base$Sex,base$Age,base$SibSp,base$Parch,base$Fare,base$Embarked)
+#Se ven los tipos de variables de la base de datos
+str(base2)
+```
+
+## 3 Limpieza de datos
+
+### 3.1 ¿Los datos contienen ceros o elementos vacíos? 
+
+Se va a evaluar cada variable para comprobar si hay elementos vacíos o ceros. En cada caso se procederá a cambiar los elementos vacíos por un valor y los valores cero se comprobará que son correctos o no. En caso negativo, se procederá a cambiar el valor por el mismo procedimiento que el caso de elemento vacío.
+
+#### Survived
+
+```{r Survived NA}
+#Se comprueban si hay valores vacíos
+which(is.na(base2$Survived))
+#En este caso no hay valores nulos
+table(base2$Survived)
+#Se comprueba que ha valores cero debido a que corresponde a la gente que no sobrevive
+```
+#### PClass
+
+```{r Pclass NA}
+#Se comprueban si hay valores vacíos
+which(is.na(base2$Pclass))
+#En este caso no hay valores nulos
+#Se comprueba que no hay valores cero.
+table(base2$Pclass)
+#Todos los datos se agrupan en los valores establecidos 1,2 y 3.
+```
+#### Sex
+
+```{r Sex NA}
+#Se comprueban si hay valores vacíos
+which(is.na(base2$Sex))
+#En este caso no hay valores nulos
+#Se comprueba que no hay valores cero.
+table(base2$Sex)
+#Todos los datos se agrupan en los valores establecidos hombre y mujer 
+```
+#### Age
+
+```{r Age NA}
+#Se comprueban si hay valores vacíos
+sel <- which(is.na(base2$Age))
+sel
+#En este caso hay valores vacíos y se procede a cambiar por la mediana de los datos
+base2[sel,"Age"]<-median(base2$Age,na.rm = T)
+#Se vuelve a comprobar si hay valores vacíos
+which(is.na(base2$Age))
+#No hay valores vacíos
+#Se comprueba que no hay valores cero.
+which(base2$Age==0)
+table(base2$Age)
+#Se comprueba que no hay valores igual a cero y los que hay cercanos a cero son correctos porque en el buque hubo bebes de meses embarcados.
+```
+#### SibSp
+
+```{r SIbSp NA}
+#Se comprueban si hay valores vacíos
+which(is.na(base2$SibSp))
+#En este caso no hay valores vacíos 
+#Se comprueba que si hay valores cero.
+table(base2$SibSp)
+#Se comprueba que hay valores igual a cero pero es razonable porque puede haber pasajeros que no tengan hermanos o cónyuges embarcados.
+```
+#### Parch
+
+```{r Parch NA}
+#Se comprueban si hay valores vacíos
+which(is.na(base2$Parch))
+#En este caso no hay valores vacíos 
+#Se comprueba que si hay valores cero.
+table(base2$Parch)
+#Se comprueba que hay valores igual a cero pero es razonable porque puede haber pasajeros que no tengan hijos o padres embarcados.
+```
+#### Fare
+
+```{r Fare NA}
+#Se comprueban si hay valores vacíos
+which(is.na(base2$Fare))
+#En este caso no hay valores vacíos 
+#Se comprueba que si hay valores cero.
+sel1 <- which(base2$Fare==0)
+sel1
+#Se comprueba que hay valores igual a cero pero no es razonable siendo substituidos por la mediana
+base2[sel1,"Fare"]<-median(base2$Fare,na.rm = T)
+#Se comprueba que se hizo correctamente el cambio
+which(base2$Fare==0)
+```
+#### Embarked
+
+```{r Embarked NA}
+#Se comprueban si hay valores vacíos 
+sel2 <- which(base2$Embarked!="C" & base2$Embarked!="S" & base2$Embarked!="Q")
+sel2
+#Se cambian estos valores por el primer puerto S = Southampton
+base2$Embarked[sel2]<-"S"
+base2[sel2,]
+#Se comprueba que se hizo correctamente el cambio
+which(base2$Embarked!="C" & base2$Embarked!="S" & base2$Embarked!="Q")
+table(base2$Embarked)
+```
+Se convierten las variables survived, pclass, sex y embarked.
+```{r Factores}
+#Se convierten en factores las variables survived, pclass, sex y embarked.
+base2$Survived <- as.factor(base2$Survived)
+base2$Pclass <- as.factor(base2$Pclass)
+base2$Sex <- as.factor(base2$Sex)
+base2$Embarked <- as.factor(base2$Embarked)
+#Se vuelve a comprobar que los tipos de variables son acordes
+str(base2)
+```
+
+###3.2.Identificación y tratamiento de valores extremos.
+
+Se va a comprobar los valores extremos para las variables age y fare debido a que las demás variables son factores o se comprobó que no hay valores extraños en el anterior apartado.
+
+#### Age
+
+```{r eval age}
+#Se va a comprobar los valores estadísticos
+summary(base2$Age)
+print("Varianza")
+var(base2$Age)
+print("Desviación")
+sd(base2$Age)
+#Se va a hacer un gráfico de cajas para ver los valores
+boxplot(base2$Age)
+#Se comprueban que hay valores extremos, se procede a ver estos valores
+boxplot.stats(base2$Age)$out
+#Estos valores son válidos porque pudo haber pasajeros con esta edad.
+```
+#### Fare
+
+```{r eval fare}
+#Se va a comprobar los valores estadísticos
+summary(base2$Fare)
+print("Varianza")
+var(base2$Fare)
+print("Desviación")
+sd(base2$Fare)
+#Se va a hacer un gráfico de cajas para ver los valores
+boxplot(base2$Fare)
+#Se comprueban que hay valores extremos siendo uno muy llamativo (cercano a 500)
+#Se procede a cambiar este valor por la media mas 3 veces la desviación 
+maxi <- max(base2$Fare)
+base2$Fare[base2$Fare==max(base2$Fare)] <- mean(base2$Fare)+3*sd(base2$Fare)
+#Se procede a comprobar de nuevo el gráfico
+boxplot(base2$Fare)
+boxplot.stats(base2$Fare)$out
+#Estos valores son válidos porque se ven precios elevados pero una cierta continuidad sin puntos singulares como anteriormente.
+#Se vuelven a comprobar los valores estadísticos
+summary(base2$Fare)
+print("Varianza")
+var(base2$Fare)
+print("Desviación")
+sd(base2$Fare)
+```
+Se guarda la base de datos final
+
+```{r guardar csv}
+write.csv(base2, file = "Titanic_clean.csv")
+```
+
+## 4 Análisis de los datos
+
+### 4.1 Selección de los grupos de datos que se quieren analizar.
+
+Se va a analizar el precio del billete según sea mujer o hombre, también por la clase del billete o por el puerto de salida para ello vamos a agrupar los datos:
+
+```{r agrupar}
+#Agrupamos el precio por sexo
+precio.mujer <- base2[base2$Sex != "male",]
+precio.hombre <- base2[base2$Sex == "male",]
+#Agrupamos el precio por clase
+precio.primera <- base2[base2$Pclass ==1,]
+precio.segunda <- base2[base2$Pclass ==2,]
+precio.tercera <- base2[base2$Pclass ==3,]
+#Agrupamos por puerto de salida
+precio.cherbourg <- base2[base2$Embarked == "C",]
+precio.queenstrown <- base2[base2$Embarked == "Q",]
+precio.southampton <- base2[base2$Embarked == "S",]
+```
+### 4.2 Comprobación de la normalidad y homogeneidad de la varianza
+
+Para la comprobación de la normalidad de los datos se va a utilizar el test de Shapiro-Wilk con un valor de confianza del 95%. 
+
+```{r normalidad}
+alpha = 0.05
+col.names = colnames(base2)
+
+for (i in 1:ncol(base2)){
+  if (i==1) cat ("Variables que no siguen una distribución normal: \n")
+  if (is.integer(base2[,i])|is.numeric(base2[,i])){
+    p_val = shapiro.test(base2[,i])$p.value
+    if (p_val < alpha){
+      cat(col.names[i])
+      #Format output
+      if (i < ncol(base2)-1) cat (", ")
+        if (i %%3 == 0) cat ("\n")
+    }
+  }
+}
+```
+
+Se va a comprobar que los datos de las variables anteriores siguen una distribución normal:
+
+```{r normalidad precio}
+#Se calcula el Test de Shapiro-Wilk para la muestra de mujer
+shapiro.test(precio.mujer$Fare)
+#Se calcula el gráfico QQ para la muestra de mujer
+qqnorm(precio.mujer$Fare)
+qqline(precio.mujer$Fare)
+#Se comprueba que no sigue una distribución normal como se comprobó anteriormente
+
+#Se calcula el Test de Shapiro-Wilk para la muestra de hombre
+shapiro.test(precio.hombre$Fare)
+#Se calcula el gráfico QQ para la muestra de hombre
+qqnorm(precio.hombre$Fare)
+qqline(precio.hombre$Fare)
+#Se comprueba que no sigue una distribución normal como se comprobó anteriormente
+
+#Se calcula el Test de Shapiro-Wilk para la muestra de primera clase
+shapiro.test(precio.primera$Fare)
+#Se calcula el gráfico QQ para la muestra de primera clase
+qqnorm(precio.primera$Fare)
+qqline(precio.primera$Fare)
+#Se comprueba que no sigue una distribución normal como se comprobó anteriormente
+
+#Se calcula el Test de Shapiro-Wilk para la muestra de segunda clase
+shapiro.test(precio.segunda$Fare)
+#Se calcula el gráfico QQ para la muestra de segunda clase
+qqnorm(precio.segunda$Fare)
+qqline(precio.segunda$Fare)
+#Se comprueba que no sigue una distribución normal como se comprobó anteriormente
+
+#Se calcula el Test de Shapiro-Wilk para la muestra de tercera clase
+shapiro.test(precio.tercera$Fare)
+#Se calcula el gráfico QQ para la muestra de tercera clase
+qqnorm(precio.tercera$Fare)
+qqline(precio.tercera$Fare)
+#Se comprueba que no sigue una distribución normal como se comprobó anteriormente
+
+#Se calcula el Test de Shapiro-Wilk para la muestra del puerto Queenstrown
+shapiro.test(precio.queenstrown$Fare)
+#Se calcula el gráfico QQ para la muestra del puerto Queenstrown
+qqnorm(precio.queenstrown$Fare)
+qqline(precio.queenstrown$Fare)
+#Se comprueba que no sigue una distribución normal como se comprobó anteriormente
+
+#Se calcula el Test de Shapiro-Wilk para la muestra del puerto Southampton
+shapiro.test(precio.southampton$Fare)
+#Se calcula el gráfico QQ para la muestra del puerto Southampton
+qqnorm(precio.southampton$Fare)
+qqline(precio.southampton$Fare)
+#Se comprueba que no sigue una distribución normal como se comprobó anteriormente
+
+#Se calcula el Test de Shapiro-Wilk para la muestra del puerto Cherbourg
+shapiro.test(precio.cherbourg$Fare)
+#Se calcula el gráfico QQ para la muestra del puerto Cherbourg
+qqnorm(precio.cherbourg$Fare)
+qqline(precio.cherbourg$Fare)
+#Se comprueba que no sigue una distribución normal como se comprobó anteriormente
+```
+
+Se va a comprobar la homogeneidad de las varianzas con el Test de Fligner-Killen.
+
+
+```{r homogeneidad varianza}
+#Se comprueba las varianzas para el precio y la edad
+fligner.test(Fare~Age, data=base2)
+#No se acepta la hipótesis nula (igualdad de varianzas) porque el p-value es menor que alpha (1-0.95)
+```
+
+### 4.3 Aplicación de pruebas estadísticas
+
+#### Variables que influyen en el precio y su proporción
+
+Para ello se va a realizar un análisis de correlación entre las distintas variables para determinar las más influyentes. Se procede a calcuar el factor de correlación con el Test de Spearman y su p-valor para comprobar que cumple el nivel de confianza.
+
+```{r correlación}
+corr_matrix <- matrix(nc = 2, nr = 0)
+colnames(corr_matrix) <- c("estimado", "p-valor")
+#Se van a seleccionar las variables con valores numéricos
+borrar2 <- c("Survived","Pclass","Sex","Embarked")
+base3 <- base2[ , !(names(base2) %in% borrar2)]
+# Calcular el coeficiente de correlación para cada variable cuantitativa con respecto al campo "precio"
+for (i in 1:(ncol(base3) - 1)) {
+if (is.integer(base3[,i]) | is.numeric(base3[,i])) {
+spearman_test = cor.test(base3[,i],base3[,length(base3)], method = "spearman")
+corr_coef = spearman_test$estimate
+p_val = spearman_test$p.value
+# Añadimos las filas a la matriz
+pair = matrix(ncol = 2, nrow = 1)
+pair[1][1] = corr_coef
+pair[2][1] = p_val
+corr_matrix <- rbind(corr_matrix, pair)
+rownames(corr_matrix)[nrow(corr_matrix)] <- colnames(base3)[i]
+corr_matrix
+}
+}
+#Se procede a imprimir los resultados
+print(corr_matrix)
+```
+
+
+Se comprueba que la variable que más influye en el precio es Parch frente a Age y SibSp con p-valor menos que alfa (1-0.95) estando dentro del nivel de confianza establecido.
+
+#### ¿El precio del billete fue superior en caso de ser mujer o hombre?
+
+Se va a realizar un contraste de hipótesis sobre dos muestras para determinar si el precio del billete depende si es mujer o hombre. Se establecen dos variables con los precios si es mujer o hombre.
+Para poder realizar un análisis de hipótesis se supone que las muestras siguen una distribución normal (n>30 en ambas variables):
+
+```{r datos contraste }
+precio.mujer.precio <- precio.mujer$Fare
+precio.hombre.precio <- precio.hombre$Fare
+```
+
+Así, se plantea el siguiente contraste de hipótesis de dos muestras sobre la diferencia de medias, el cual es unilateral atendiendo a la formulación de la hipótesis alternativa:
+o	H0 : µ1 − µ2 = 0 
+o	H1 : µ1 − µ2 < 0
+donde µ1 es la media de la población de la que se extrae la primera muestra y µ2 es la media de la población de la que extrae la segunda. Así, tomaremos α = 0, 05.
+
+```{r contraste }
+t.test(precio.mujer.precio,precio.hombre.precio, alternative = "less")
+```
+
+Como el valor de p-valor (1) es mayor que el valor de significación fijado (0.05), se da por válida la hipótesis nula. Lo que nos indica que el valor del precio del billete no influye si es mujer o hombre.
+
+####Modelo de regresión lineal para el precio
+
+Se calcula la variable fare (precio) como explicada y las variables Survived, Pclass, Sex, Age, SibSp, Parch y Embarked como explicativas. Obteniendo:
+
+```{r regresión }
+logit_model_1 <- lm(formula=Fare~factor(Survived)+factor(Pclass)+factor(Sex)+Age+SibSp+Parch+factor(Embarked), data=base2)
+summary(logit_model_1)
+```
+
+Se comprueba que las variables Survived, Pclass, SibSp y Parch tienen un nivel de significación cercano al cero y con un nivel de significación del 1% la variable Embarked.
+El coeficiente de determinación ajustado de 0,5361 de este modelo por lo cual se puede decir que no se ajusta a la perfección a una recta.
+El p-value del modelo es significativo (2.2e-16) por lo que se puede aceptar que el modelo no es por azar, al menos uno de los coeficientes parciales de regresión es distinto de 0.
+
+```{r error regresión }
+#Se calculan los errores del modelo
+residuosmult.cual <- residuals(logit_model_1)
+#Se calculan los valores ajustados al modelo
+valores.ajustados.mult.cual <-fitted(logit_model_1)
+#Se representan los valores estimados frente a los errores
+residualPlot(logit_model_1)
+```
+
+```{r repre regresión }
+#Se representan los valores de cada variable frente a los errores
+residualPlots(logit_model_1)
+```
+
+Se comprueba que los errores están cercanos al eje de abscisas de los valores estimados (Cercanos a cero) y no sigue una distribución conocida. También se comprueba que los valores de los errores frente a las diferentes variables no siguen un modelo muy definido como se puede comprobar en los diferentes gráficos.
+
+Se procede a predecir el valor de precio con los siguientes valores:
+o	Age = 55
+o	Survived = 1
+o	Pclass = 3
+o	Sex = "male"
+o	SibSp = 0
+o	Parch = 0
+o	Embarked = "C"
+
+```{r predición  regresión }
+#Se va a predecir el precio por unos valores determinados
+nuevos.valores <- data.frame(Age = 55, Survived = 1, Pclass = 3, Sex = "male", SibSp = 0, Parch = 0, Embarked = "C")
+#Calculamos el valor de precio
+precioest <-  predict(logit_model_1, nuevos.valores)
+precioest
+```
+
+#### Modelo de regresión logística
+Se calcula una regresión lineal de la variable Survived  como explicada y las variables Fare, Pclass, Sex, Age, SibSp, Parch y Embarked como explicativas. Obteniendo:
+
+```{r regresión log}
+logit_model_2 <- glm(formula=Survived~Fare+factor(Pclass)+factor(Sex)+Age+SibSp+Parch+factor(Embarked), data=base2, family = binomial(link = 'logit'))
+summary(logit_model_2)
+```
+
+Se procede a predecir la posibilidad de sobrevivir con los siguientes valores:
+o	Age = 55
+o	Fare = 7
+o	Pclass = 3
+o	Sex = "male"
+o	SibSp = 0
+o	Parch = 0
+o	Embarked = "C"
+
+```{r predición  logistica }
+#Se va a predecir el precio por unos valores determinados
+nuevos.valores2 <- data.frame(Age = 55, Fare = 7, Pclass = 3, Sex = "male", SibSp = 0, Parch = 0, Embarked = "C")
+#Calculamos la probabilidad de sobrevivir
+superv <-  round(predict(logit_model_2, nuevos.valores2, type = "response"))
+superv
+```
+
+Se comprueba que no se va a sobrevivir.
+
+
+## 5.Representación de los resultados a partir de tablas y gráficas.
+
+Se va a proceder a tabular los valores siguientes:
+•	precio.mujer
+•	precio.hombre
+•	precio.primera 
+•	precio.segunda 
+•	precio.tercera 
+•	precio.cherbourg 
+•	precio.queenstrown 
+•	precio.southampton 
+
+Tabla de valores Precio y Edad por Sexo.
+
+```{r tabla Sex }
+ttDescri <- tabular( Sex ~ (Fare + Age) *( mean + sd + min + max ) + ( n = 1 ), data = base2 )
+ttDescri
+```
+Tabla de valores Precio y Edad por Clase.
+
+```{r tabla Pclass }
+ttDescri2 <- tabular( Pclass ~ (Fare + Age) *( mean + sd + min + max ) + ( n = 1 ), data = base2 )
+ttDescri2
+```
+
+Tabla de valores Precio y Edad por Puerto
+
+```{r tabla Puerto}
+ttDescri3 <- tabular( Embarked ~ (Fare + Age) *( mean + sd + min + max ) + ( n = 1 ), data = base2 )
+ttDescri3
+```
+
+Procedemos a hacer los gráficos:
+
+Gráfico de Edad frente Precio
+
+```{r grafica precio}
+ggplot(data = base2, aes( x = Age, y = Fare )) + geom_point( aes( colour = Sex ), size = 2) + labs( title = "Precio según Edad", x = "Edad", y = "Precio")
+```
+
+Gráfico de pasajeros por clase.
+
+```{r grafica clase}
+tablashelve <- table(base2$Pclass )
+tablashelve <- prop.table(tablashelve)
+barplot(tablashelve, main="Gráfico de barras de los pasajeros por clases ", ylab="Frecuencia", col="blue")
+```
+
+Gráfico de pasajeros que murieron (0) o sobrevivieron (1)
+
+```{r grafica survived}
+tablashelve2 <- table(base2$Survived)
+tablashelve2
+tablashelve2<- prop.table(tablashelve2)
+barplot(tablashelve2, main="Gráfico de barras de los pasajeros que murieron (0) o sobrevivieron (1) ", ylab="Frecuencia", col="red")
+```
+
+Gráfico de pasajeros por puerto de embarque
+
+```{r grafica port}
+tablashelve3 <- table(base2$Embarked)
+tablashelve3
+tablashelve3<- prop.table(tablashelve3)
+barplot(tablashelve3, main="Gráfico de barras de los pasajeros que murieron (0) o sobrevivieron (1) ", ylab="Frecuencia", col="yellow")
+```
+
+## 6 Resolución del problema. 
+
+### A partir de los resultados obtenidos, ¿cuáles son las conclusiones? ¿Los resultados permiten responder al problema?
+
+Se puede estimar el precio no depende del sexo (según el estudio de contraste de hipótesis realizados) y que las varianzas de edad y precio no son iguales por el otro estudio realizado.
+Se llega a obtener una regresión lineal con un coeficiente de fiabilidad del 95% y con un ajuste cercano al 0,5; pudiéndose considerar para estimar valores de precio. Las variables que influyen en el precio son: 
+•	Survived. No tengo explicación
+•	Pclass. La clase influye en el precio del billete
+•	SibSp y Parch. Se hacen descuentos cuando se compran billetes en conjunto por lo cual si se tienen familiares embarcados se supone que se han comprado en conjunto los tiques.
+•	Embarked. El puerto de embarque influye en el precio porque cuanto más trayecto aumenta el precio.
+
+También se consigue estimar si un pasajero iba a sobrevivir por las variables evaluadas, siendo las de mayor importancia:
+•	Pclass. Las clases mejores tienen camarotes y zonas comunes sobre la floración siendo más fácil poder escapar del buque. Además, en aquella época tenían derecho a los botes de rescate solo la primera clase.
+•	Age. Las personas jóvenes tienen más resistencia la frio como al ejercicio para mantenerse a flote.
+•	SibSp. Tener familiares a bordo influye porque se intenta buscar y salvar a los familiares desviando esfuerzos para ello.
+
+Los resultados permiten resolver el problema planteado.
+
